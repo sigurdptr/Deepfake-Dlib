@@ -1,17 +1,23 @@
+from pathlib import Path
+from threading import Thread
+
 import cv2
 import numpy as np
-
+from PyQt6 import QtCore
+from PyQt6.QtGui import QPixmap, QImage
 from PyQt6.QtWidgets import (
     QMainWindow,
     QPushButton,
     QHBoxLayout,
     QVBoxLayout,
+    QFileDialog,
+    QMessageBox,
     QWidget,
     QLabel
 )
 
-from PyQt6.QtGui import QPixmap, QImage
-from PyQt6 import QtCore
+from mask import FaceMask
+from predictor import PredictorModel
 
 
 class ImageDisplay(QLabel):
@@ -22,7 +28,7 @@ class ImageDisplay(QLabel):
         self.setFixedSize(width, height)
 
 
-    def _scale_img(self, img: cv2.UMat) -> None:
+    def _scale_img(self, img: cv2.UMat) -> cv2.UMat:
         label_width = self.size().width()
         label_height = self.size().height()
 
@@ -33,8 +39,8 @@ class ImageDisplay(QLabel):
         else:
             factor = label_height / img_h
 
-        img_w = min(label_width, int(img_w *factor))
-        img_h = min(label_height, int(img_h *factor))
+        img_w = min(label_width, round(img_w * factor))
+        img_h = min(label_height, round(img_h * factor))
 
         resized = cv2.resize(img, (img_w, img_h))
 
@@ -48,15 +54,12 @@ class ImageDisplay(QLabel):
         else:
             offset_x = int((label_width - img_w) / 2)
 
-        print(offset_x, img_w)
-        print(offset_y, img_h)
-
         padded[offset_y:offset_y+img_h, offset_x:offset_x+img_w] = resized
 
         return padded
 
     
-    def setImage(self, img: cv2.UMat) -> None:
+    def set_image(self, img: cv2.UMat) -> None:
         img = self._scale_img(img)
 
         h, w = img.shape[:2]
@@ -68,65 +71,135 @@ class ImageDisplay(QLabel):
 
 
 class AppWindow(QMainWindow):
-    def __init__(self) -> None:
+    def __init__(self, working_dir: Path) -> None:
         super().__init__()
+
+        predictor_path = Path(working_dir, "assets", "shape_predictor_68_face_landmarks.dat")
+        PredictorModel.init(predictor_path)
+
+        self._active_generating = False
+        self._face_file = None
+        self._face_mask = None
+        self._input_file = None
 
         self.setFixedSize(850, 500)
         self.setWindowTitle("Deepfake")
 
-        rootLayout = QHBoxLayout()
-        rootLayout.setSpacing(20)
+        root_layout = QHBoxLayout()
+        root_layout.setSpacing(20)
 
-        panel = self._createControlPanel()
-        result = ImageDisplay(560, 480)
+        self._panel = self._create_control_panel()
+        self._result_img = ImageDisplay(560, 480)
 
-        rootLayout.addLayout(panel)
-        rootLayout.addWidget(result)
+        root_layout.addLayout(self._panel)
+        root_layout.addWidget(self._result_img)
 
         widget = QWidget()
-        widget.setLayout(rootLayout)
+        widget.setLayout(root_layout)
         self.setCentralWidget(widget)
         self.show()
     
 
-    def _createControlPanel(self) -> QVBoxLayout:
+    def _create_control_panel(self) -> QVBoxLayout:
         layout = QVBoxLayout()        
 
         layout.setAlignment(QtCore.Qt.AlignmentFlag.AlignTop)
 
-        preview = ImageDisplay(200, 200)
-        layout.addWidget(preview)
+        self._face_preview = ImageDisplay(200, 200)
+        layout.addWidget(self._face_preview)
         
         controlLabel = QLabel("━━━━━━━━━━━━━━━━━━━━━")
         controlLabel.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(controlLabel)
         
-        openFaceBtn = QPushButton("Open face image")
-        openFaceBtn.setFixedSize(200, 60)
-        openFaceBtn.clicked.connect(self._openFaceImg)
-        layout.addWidget(openFaceBtn)
+        self._openFaceBtn = QPushButton("Open face image")
+        self._openFaceBtn.setFixedSize(200, 60)
+        self._openFaceBtn.clicked.connect(self._open_face_img)
+        layout.addWidget(self._openFaceBtn)
 
-        openInputBtn = QPushButton("Open input file")
-        openInputBtn.setFixedSize(200, 60)
-        openInputBtn.clicked.connect(self._openInputFile)
-        layout.addWidget(openInputBtn)
+        self._openInputBtn = QPushButton("Open input file")
+        self._openInputBtn.setFixedSize(200, 60)
+        self._openInputBtn.clicked.connect(self._open_input_file)
+        layout.addWidget(self._openInputBtn)
 
-        generateBtn = QPushButton()
-        generateBtn.setText("Generate")
-        generateBtn.setFixedSize(200, 60)
-        generateBtn.clicked.connect(self._generateDeepfake)
-        layout.addWidget(generateBtn)
+        self._generateBtn = QPushButton()
+        self._generateBtn.setText("Generate")
+        self._generateBtn.setFixedSize(200, 60)
+        self._generateBtn.clicked.connect(self._generate_deepfake)
+        layout.addWidget(self._generateBtn)
 
         return layout
     
 
-    def _openFaceImg(self) -> None:
-        print("face")
+    def _open_face_img(self) -> None:
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,
+            'Open file',
+            None,
+            "Image files (*.jpg *.png *.jpeg)"
+        )
+        
+        if not file_path:
+            return
+        
+        img = cv2.imread(file_path)
+        faces = PredictorModel.detect_faces(img)
+
+        if len(faces) == 0:
+            QMessageBox.critical(
+                None,
+                "Error",
+                "Unable to locate faces in image"
+            )
+            return
+        elif len(faces) > 1:
+            QMessageBox.critical(
+                None,
+                "Error",
+                "Too many faces located in image"
+            )
+            return
+
+        self._face_mask = FaceMask(img, faces[0])
+        self._face_preview.set_image(img)
 
     
-    def _openInputFile(self) -> None:
-        print("input")
+    def _open_input_file(self) -> None:
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,
+            'Open file',
+            None,
+            "Media files (*.jpg *.png *.jpeg)"
+        )
+
+        if not file_path:
+            return
+        
+        self._input_file = cv2.imread(file_path)
+        self._result_img.set_image(self._input_file)
 
 
-    def _generateDeepfake(self) -> None:
-        print("generate")
+    def _deepfake_daemon(self) -> None:
+        faces = PredictorModel.detect_faces(self._input_file)
+
+        if len(faces) == 0:
+            QMessageBox.critical(None, "Error", "Unable to locate faces in input file")
+            return
+
+        result = self._face_mask.apply_mask(self._input_file, faces)
+        self._result_img.set_image(result)
+        
+        self._active_generating = False
+
+
+    def _generate_deepfake(self) -> None:
+        if self._active_generating:
+            return
+        
+        self._active_generating = True
+        
+        t = Thread(
+            target=self._deepfake_daemon,
+            daemon=True
+        )
+        t.start()
