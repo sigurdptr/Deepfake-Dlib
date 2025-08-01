@@ -181,11 +181,14 @@ class AppWindow(QMainWindow):
 
     def _deepfake_daemon(self) -> None:
         if self._input_file is None or self._face_mask is None:
+            self._active_generating = False
+            QMessageBox.critical(None, "Error", "Make sure to add input file and face image")
             return
 
         faces = PredictorModel.detect_faces(self._input_file)
 
         if len(faces) == 0:
+            self._active_generating = False
             QMessageBox.critical(None, "Error", "Unable to locate faces in input file")
             return
 
