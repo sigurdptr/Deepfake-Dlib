@@ -180,6 +180,9 @@ class AppWindow(QMainWindow):
 
 
     def _deepfake_daemon(self) -> None:
+        if self._input_file is None or self._face_mask is None:
+            return
+
         faces = PredictorModel.detect_faces(self._input_file)
 
         if len(faces) == 0:
@@ -188,7 +191,7 @@ class AppWindow(QMainWindow):
 
         result = self._face_mask.apply_mask(self._input_file, faces)
         self._result_img.set_image(result)
-        
+
         self._active_generating = False
 
 
