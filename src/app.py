@@ -56,7 +56,7 @@ class ImageDisplay(QLabel):
         return padded
 
     
-    def set_image(self, img: cv2.UMat) -> None:
+    def setImage(self, img: cv2.UMat) -> None:
         img = self._scale_img(img)
 
         h, w = img.shape[:2]
@@ -65,32 +65,6 @@ class ImageDisplay(QLabel):
         pix_map = QPixmap.fromImage(q_img.rgbSwapped())
 
         self.setPixmap(pix_map)
-
-
-class ControlsLayout(QVBoxLayout):
-    def __init__(self, *args, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
-        self.setAlignment(QtCore.Qt.AlignmentFlag.AlignTop)
-
-        preview = ImageDisplay(200, 200)
-        self.addWidget(preview)
-        
-        controlLabel = QLabel("━━━━━━━━━━━━━━━━━━━━━")
-        controlLabel.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        self.addWidget(controlLabel)
-        
-        openFaceBtn = QPushButton("Open face image")
-        openFaceBtn.setFixedSize(200, 60)
-        self.addWidget(openFaceBtn)
-
-        openInputBtn = QPushButton("Open input file")
-        openInputBtn.setFixedSize(200, 60)
-        self.addWidget(openInputBtn)
-
-        generateBtn = QPushButton()
-        generateBtn.setText("Generate")
-        generateBtn.setFixedSize(200, 60)
-        self.addWidget(generateBtn)
 
 
 class AppWindow(QMainWindow):
@@ -103,13 +77,56 @@ class AppWindow(QMainWindow):
         rootLayout = QHBoxLayout()
         rootLayout.setSpacing(20)
 
-        controlsLayout = ControlsLayout()
-        resultPreview = ImageDisplay(560, 480)
+        panel = self._createControlPanel()
+        result = ImageDisplay(560, 480)
 
-        rootLayout.addLayout(controlsLayout)
-        rootLayout.addWidget(resultPreview)
+        rootLayout.addLayout(panel)
+        rootLayout.addWidget(result)
 
         widget = QWidget()
         widget.setLayout(rootLayout)
         self.setCentralWidget(widget)
         self.show()
+    
+
+    def _createControlPanel(self) -> QVBoxLayout:
+        layout = QVBoxLayout()        
+
+        layout.setAlignment(QtCore.Qt.AlignmentFlag.AlignTop)
+
+        preview = ImageDisplay(200, 200)
+        layout.addWidget(preview)
+        
+        controlLabel = QLabel("━━━━━━━━━━━━━━━━━━━━━")
+        controlLabel.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(controlLabel)
+        
+        openFaceBtn = QPushButton("Open face image")
+        openFaceBtn.setFixedSize(200, 60)
+        openFaceBtn.clicked.connect(self._openFaceImg)
+        layout.addWidget(openFaceBtn)
+
+        openInputBtn = QPushButton("Open input file")
+        openInputBtn.setFixedSize(200, 60)
+        openInputBtn.clicked.connect(self._openInputFile)
+        layout.addWidget(openInputBtn)
+
+        generateBtn = QPushButton()
+        generateBtn.setText("Generate")
+        generateBtn.setFixedSize(200, 60)
+        generateBtn.clicked.connect(self._generateDeepfake)
+        layout.addWidget(generateBtn)
+
+        return layout
+    
+
+    def _openFaceImg(self) -> None:
+        print("face")
+
+    
+    def _openInputFile(self) -> None:
+        print("input")
+
+
+    def _generateDeepfake(self) -> None:
+        print("generate")
