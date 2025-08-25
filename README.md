@@ -12,9 +12,9 @@
 
 &nbsp;&nbsp;&nbsp;&nbsp;
 
-<h4 align="center">
+<p align="center">
     An application that allows you to generate deepfake face images. This application uses Dlib's frontal_face detection functionality and combines it with their 68 point face landmark predictor to map out the shape. Afterwards a delaunay triangulation of these landmarks is calculated which are warped using affine transformation. To better blend the result image the application uses opencv seamless clone to remove some but not all gap imperfections.
-</h4>
+</p>
 
 ## How to run application
 
