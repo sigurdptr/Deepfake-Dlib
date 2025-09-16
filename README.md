@@ -18,14 +18,26 @@
 
 ## How to run application
 
-### First intall all pip requirements
+### Install dependencies
 
+#### Windows
+```bash
+pip install -r requirements.txt
+```
+
+#### Linux / Mac
 ```bash
 pip3 install -r requirements.txt
 ```
 
 ### Run src/main.py
 
+#### Windows
+```bash
+python src/main.py
+```
+
+#### Linux / Mac
 ```bash
 python3 src/main.py
 ```
